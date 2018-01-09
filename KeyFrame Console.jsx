@@ -1,57 +1,74 @@
-﻿var mainComp = app.project.activeItem;
+var mainComp = app.project.activeItem;
 var mainLayer = mainComp.layer(1);
 var mainWindow = new Window("palette", "KF Console", undefined);
 
-var presetFolder =  File('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ 2017\\Support\ Files\\Presets\\AnimationMaster');
-//todo can't hardcore folder names into the script so either go through everypossible option or let user choose or whatever
+
+// ------------------- TO CHANGE -----------------------
+
+var programVersion = "2018";
+
+// ------------------- TO CHANGE -----------------------
+
+var presetFolder =  File('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ '+programVersion+'\\Support\ Files\\Presets\\AnimationMaster');
+var scriptLocation = File('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ '+programVersion+'\\Support\ Files\\Scripts\\01-KeyFrame\ Console.jsx');
+var shortcutPath = 'C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ '+programVersion+'\\Support\ Files\\Presets\\AnimationMaster\\shortcuts.txt';
+
+var delIcon = File ('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ '+programVersion+'\\Support\ Files\\Presets\\AnimationMaster\\delico.png');
+var renameIcon = File ('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ '+programVersion+'\\Support\ Files\\Presets\\AnimationMaster\\renamico.png');
+var shortcutIcon = File ('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ '+programVersion+'\\Support\ Files\\Presets\\AnimationMaster\\shortcutico.png');
+
+
+
+var shortCutFile = File(shortcutPath);
 var  files = new Array();
 files = presetFolder.getFiles ("*.ffx");
-var bsize = [0,0,30,40];
+var bsize = [0,0,30,30];
 
+// ------------------- FILLS WINDOW -----------------------
 for(i = 0; i < files.length; i++){
     var myButtonGroup = mainWindow.add("group");
     var supername = String(files[i]);
     var startPosition = supername.lastIndexOf( "/" ) ;
-    //todo shows the shortcut word isntead  of the fucking SC
-    var shortCutFile = File('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ 2017\\Support\ Files\\Presets\\AnimationMaster\\shortcuts.txt');
-
-    var buttonX = myButtonGroup.add("button", undefined, supername.substring(startPosition+1, supername.length -4));
-    var buttonRename = myButtonGroup.add("button",bsize,"RN");
-    var buttonDel = myButtonGroup.add("button",undefined,"⃠");
+    var shortCutFile = File(shortcutPath);
+    var shortCutChar = "SC";
+    var shortcutSwitch = false;
+    var buttonDel = myButtonGroup.add("iconbutton", undefined, delIcon, {style:"toolbutton"});
+    var buttonX = myButtonGroup.add("button", undefined, supername.substring(startPosition+1, supername.length -4).replace(/%20/g, " "));
+    var buttonRename = myButtonGroup.add("iconbutton",undefined,renameIcon, {style:"toolbutton"});
+    
+    if (shortCutFile.exists){
+        shortCutFile.open('r');
+        var content = shortCutFile.read();
+        var lines = content.split('\n');
+        for (j = 0; j < lines.length-1; j++) {
+            if (supername.toString().replace(/%20/g, " ") == lines[j].slice(0,lines[j].lastIndexOf(".") + 4).replace(/%20/g, " ")){
+                shortCutChar = lines[j].slice(lines[j].lastIndexOf(".") + 4);
+                var buttonShortcut = myButtonGroup.add("button",bsize, shortCutChar);
+                shortcutSwitch = true;
+            }
+        }
+        shortCutFile.close();
+    }
+    
+    if (!shortcutSwitch) var buttonShortcut = myButtonGroup.add("iconbutton",undefined,shortcutIcon, {style:"toolbutton"});
+    
     buttonDel.name=i;
     buttonDel.onClick=deleteMyPreset;
     buttonRename.name=i;
     buttonRename.onClick=renamePreset;
     buttonX.name= i;
     buttonX.onClick=applyMyPreset;
-    var buttonShortcut = myButtonGroup.add("button",undefined,"GG");
+    buttonShortcut.name=i;
+    buttonShortcut.onClick=assignShortcut; 
     
-            if (shortCutFile.exists){  
-                
-                shortCutFile.open('r', undefined, undefined);
-                var content = shortCutFile.read();
-                var lines = content.split('\n');
-                for (j = 0; j < lines.length-1; j++){
-                    var shortcutName = lines[j].slice(lines[j].lastIndexOf("/") + 1 ,lines[j].length-5);
-                    var shortcutButtonName = buttonX.name.toString().slice(buttonX.name.toString().lastIndexOf("/") + 1 ,buttonX.name.toString().length-4) // FUCK IS THIS
-                    alert("hello " + shortcutName+ " " + shortcutButtonName);
-                      if (shortcutName == shortcutButtonName) { 
-                          alert("hello");
-                            buttonShortcut = myButtonGroup.add("button",undefined,"GG");
-                     }
-                }
-                shortCutFile.close();
-        }else{
-            buttonShortcut = myButtonGroup.add("button",undefined,"SC");
-        }
-    
-        buttonShortcut.name=i;
-        buttonShortcut.onClick=assignShortcut;
+    myButtonGroup.alignment = [ScriptUI.Alignment.FILL,ScriptUI.Alignment.FILL];
+    buttonX.minimumSize.width=170;
 };
 
+// ------------------- USING SHORTCUT -----------------------
 mainWindow.addEventListener ("keydown", function (k){shortCut(k)});
 function shortCut (k){
-    var shortCutFile = File('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ 2017\\Support\ Files\\Presets\\AnimationMaster\\shortcuts.txt');
+    var shortCutFile = File(shortcutPath);
     shortCutFile.open('r', undefined, undefined);
     var content = shortCutFile.read();
     var lines = content.split('\n');
@@ -69,87 +86,168 @@ function shortCut (k){
     shortCutFile.close();
 }
 
+// ------------------- RENAMING PRESETS -----------------------
 function renamePreset(){
-    //todo vaata et ei ole juba sama nimega faile olemas
-    //todo vaata et sisestatav edittext oleks highlightitud
-    //todo vaata et sisestatava edittexti lahter oleks suurem
-    //todo kui vajutad ented siis koheselet saadab selle asja minema
-    //todo parsi tühikud nii et nad ei annaks kahtlast %20 
     var buttonName = files[this.name];
     var box = new Window('dialog');  
     box.panel = box.add('panel', undefined, "New Name");  
-    box.panel_text1 = box.panel.add('edittext', undefined, "");  
+    var panel_text1 = box.panel.add('edittext', undefined, ""); 
+    panel_text1.characters = 30;
+    panel_text1.active = true;
     var buttonRe = box.add("button",undefined,"Save");
     buttonRe.onClick=renameP;
+    
+    box.addEventListener ("keydown", function (kd) {pressedEnter (kd)});
+    function pressedEnter (k) {
+        if(k.keyName === "Enter")renameP();
+    }
 
     function renameP(){
-        buttonName.rename(box.panel_text1.text + ".ffx");
-        box.close();
+        var changeSwitch = true;
+        if (panel_text1.text == "") box.close();
+        else{
+            for (j = 0; j < files.length; j++) {
+                if (files[j].toString().slice(files[j].toString().lastIndexOf("/") + 1 ,files[j].toString().length-4) == panel_text1.text){
+                    alert("This name is already in use");
+                    changeSwitch = false;
+                    break;
+                }
+            }
+        
+            shortCutFile.open('r');
+            var content = shortCutFile.read();
+            var lines = content.split('\n');
+            var textArray = [];
+            var shortcutFound = false;
+            
+            if (changeSwitch){
+                for (j = 0; j < lines.length-1; j++) {                   
+                    if (lines[j].slice(lines[j].lastIndexOf("/") + 1 ,lines[j].lastIndexOf(".")) == buttonName.toString().slice(buttonName.toString().lastIndexOf("/") + 1 ,buttonName.toString().length-4)){     
+                        var oldLine = lines[j];
+                        var newLine = oldLine.slice(0, oldLine.lastIndexOf("/") + 1) + panel_text1.text+ oldLine.slice(oldLine.lastIndexOf("."));
+                        textArray.push(newLine);
+                        shortcutFound = true;         
+                    } else  textArray.push(lines[j]);
+                }
+            
+                if (shortcutFound){
+                    shortCutFile.open('w');
+                    for (i = 0; i < textArray.length; i++){
+                        shortCutFile.write(textArray[i] + '\n');
+                    }
+                    shortCutFile.close();
+                }
+            
+                buttonName.rename(panel_text1.text + ".ffx");
+                box.close();
+                mainWindow.close();
+                $.evalFile(scriptLocation);
+            }
+        }
     }
     box.show();
 }
 
+// ------------------- ASSIGNING A SHORTCUT -----------------------
 function assignShortcut(){
     var box = new Window('dialog');  
     var buttonName = files[this.name];
     box.addEventListener ("keydown", function (kd) {pressed (kd)});
     
     function pressed (k) {
-        var shortCutFile = File('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ 2017\\Support\ Files\\Presets\\AnimationMaster\\shortcuts.txt');
-        
-        if (!shortCutFile.exists){  
-            shortCutFile = new File ('C:\\Program\ Files\\Adobe\\Adobe\ After\ Effects\ CC\ 2017\\Support\ Files\\Presets\\AnimationMaster\\shortcuts.txt');
+         if (!shortCutFile.exists){  
+            shortCutFile = new File (shortcutPath);
             shortCutFile.open('w');
             shortCutFile.write(buttonName.toString() + k.keyName + '\n');
             shortCutFile.close();
-            alert("created a new file");
-         }else{
+            //alert("created a new file");
+         } else {
             shortCutFile.open('a');
             var content = shortCutFile.read();
             var lines = content.split('\n');
+            var doneSwitch = false;
+            var renameSwitch = false;
             var presentButtonName = buttonName.toString().slice(buttonName.toString().lastIndexOf("/") + 1 ,buttonName.toString().length-4);            
-            //alert("before for loop + " + lines.length);
+            var textArray = [];
+            
             for (j = 0; j < lines.length-1; j++) {
-                //alert("am for looping");
-                
-                var presetNameInFile = lines[j].slice(lines[j].lastIndexOf("/") + 1 ,lines[j].length-5);
-                //alert (presetNameInFile + " " + presentButtonName);
+                var presetNameInFile = lines[j].slice(lines[j].lastIndexOf("/") + 1 ,lines[j].length-5);            
+            
                 if (presetNameInFile == presentButtonName){
-                    lines[j] = "WUT";
+                    var oldLine = lines[j];
+                    var newLine = oldLine.slice(0, oldLine.lastIndexOf(".ffx") + 4) + k.keyName;
+                    textArray.push(newLine);
+                    
+                    doneSwitch = true;
+                    renameSwitch = true;
                     shortCutFile.writeln(buttonName.toString() + k.keyName);
-                    alert("found existing one and replaced");
-                    //shortCutFile.close();
+                    //alert("found existing one and replaced");
+                    shortCutFile.close();
                     box.close();
-                }
-                else if (k.keyName == lines[j].slice(-1)){
+                    
+                }else if (k.keyName == lines[j].slice(-1)){
                     alert("Shortcut already in use by " + presetNameInFile); 
-                    //shortCutFile.close();
+                    doneSwitch = true;
+                    shortCutFile.close();
                     box.close();
-                }
+                    break;
+                }else textArray.push(lines[j]); 
             }
         
-            shortCutFile.open('a');
-            shortCutFile.writeln(buttonName.toString() + k.keyName);
-            alert("made new shortcut");
             shortCutFile.close();
+        
+            if(renameSwitch){
+                shortCutFile.open('w');
+                for (i = 0; i < textArray.length; i++){
+                    shortCutFile.write(textArray[i] + '\n');
+                }
+                shortCutFile.close();
+            }
+        
+            if (!doneSwitch){
+                shortCutFile.open('a');
+                shortCutFile.writeln(buttonName.toString() + k.keyName);
+                //alert("made new shortcut");
+                shortCutFile.close();
+            }
          }
-       //todo refreshes the mainwindow shit so it would show the new button name
-       box.close();
+         mainWindow.close();
+         $.evalFile(scriptLocation);
+         box.close();
     }
+
     box.panel = box.add('panel', undefined, "Press the button on the keyboard that you wish to use as a shortcut");  
     box.show();
 }
 
+// ------------------- DELETING PRESETS -----------------------
 function deleteMyPreset(){
     var MyFile = files[this.name];
+    var deleteSwitch = false;
     if (MyFile.exists){  
-            //MyFile.remove();  
-            alert("removed");
-            mainWindow.remove(myButtonGroup); //TODO UPDATEB LIHTSALT ASJA
-            //todo also remove the shortcut from text file if there is one
+            MyFile.remove();
+            
+            shortCutFile.open('r');
+            var content = shortCutFile.read();
+            var lines = content.split('\n');
+            var textArray = [];
+            for (j = 0; j < lines.length-1; j++) {
+                if (lines[j].slice(0, -1) != MyFile)textArray.push(lines[j]);
+                else deleteSwitch = true;
+            }
+            shortCutFile.close();
+            if(deleteSwitch){
+                shortCutFile.open('w');
+                for (i = 0; i < textArray.length; i++){
+                    shortCutFile.write(textArray[i] + '\n');
+                }
+                shortCutFile.close();
+            } 
     }else{
-            alert("There's an error with removing the preset. Try closing this window and opening it up again"); 
-    } 
+            alert("There's an error with removing the preset. Try closing the script and opening it up again"); 
+    }
+    mainWindow.close();
+    $.evalFile(scriptLocation);
 }
 
 function applyMyPreset(){
@@ -157,14 +255,20 @@ function applyMyPreset(){
   mainWindow.close();
 }
 
+// ------------------- SAVE BUTTON -----------------------
+mainWindow.separator = mainWindow.add ("panel");
+mainWindow.separator.minimumSize.width = mainWindow.separator.maximumSize.width = 300;
+ 
 var groupTwo = mainWindow.add("group", undefined, "Buttons");
 groupTwo.orientation = "row";
 
 var saveButton = groupTwo.add("button", undefined, "Save keyframes");
-//saveButton.graphics.foregroundColor = saveButton.graphics.newBrush(saveButton.graphics.BrushType.SOLID_COLOR,[0.5,0.5,0.5]);
+saveButton.minimumSize.width=220;
 
 saveButton.onClick = function(){
     app.executeCommand(3075);
+    mainWindow.close();
+    $.evalFile(scriptLocation);
 }
 
 mainWindow.show();
